@@ -1,0 +1,17 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="org.example.visualanchors" >
+4
+5    <uses-sdk android:minSdkVersion="26" />
+6
+7    <application>
+7-->/Users/davidcavada/caso_uso_camera_server/android/build/plugins/visualanchors/src/main/AndroidManifest.xml:2:5-6:19
+8        <meta-data
+8-->/Users/davidcavada/caso_uso_camera_server/android/build/plugins/visualanchors/src/main/AndroidManifest.xml:3:9-5:77
+9            android:name="org.godotengine.plugin.v1.VisualAnchors"
+9-->/Users/davidcavada/caso_uso_camera_server/android/build/plugins/visualanchors/src/main/AndroidManifest.xml:4:13-67
+10            android:value="org.example.visualanchors.VisualAnchorsPlugin" />
+10-->/Users/davidcavada/caso_uso_camera_server/android/build/plugins/visualanchors/src/main/AndroidManifest.xml:5:13-74
+11    </application>
+12
+13</manifest>

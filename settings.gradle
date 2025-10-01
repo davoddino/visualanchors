@@ -1,0 +1,9 @@
+// lasciate le righe esistenti in alto...
+rootProject.name = "build"
+
+// assicurati che ci sia
+include(":build")
+
+// AGGIUNGI QUESTE DUE RIGHE
+include(":plugins:visualanchors")
+project(":plugins:visualanchors").projectDir = file("plugins/visualanchors")
