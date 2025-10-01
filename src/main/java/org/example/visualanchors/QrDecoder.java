@@ -1,7 +1,5 @@
 package org.example.visualanchors;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import com.google.zxing.BarcodeFormat;
@@ -31,6 +29,10 @@ final class QrDecoder {
     enum PixelFormat { RGBA, BGRA, ARGB, ABGR }
 
     private PixelFormat pixelFormat = PixelFormat.RGBA;
+    private final MultiFormatReader reader = new MultiFormatReader();
+    private byte[] lumaBuffer = new byte[0];
+    private byte[] rotatedBuffer = new byte[0];
+    private int[] argbBuffer = new int[0];
 
     static final class ResultData {
         final String text;
@@ -38,14 +40,10 @@ final class QrDecoder {
         ResultData(String text, float[] corners) { this.text = text; this.corners = corners; }
     }
 
-    private boolean debug = false;
-    void setDebug(boolean enabled) { debug = enabled; }
-
     void setPixelFormat(String fmt) {
         if (fmt == null) { pixelFormat = PixelFormat.RGBA; return; }
         try { pixelFormat = PixelFormat.valueOf(fmt.toUpperCase(Locale.ROOT)); }
         catch (IllegalArgumentException ex) { pixelFormat = PixelFormat.RGBA; }
-        if (debug) Log.d(TAG, "Pixel format set to: " + pixelFormat);
     }
 
     private static final Map<DecodeHintType, Object> HINTS = new EnumMap<>(DecodeHintType.class);
@@ -55,54 +53,25 @@ final class QrDecoder {
         HINTS.put(DecodeHintType.CHARACTER_SET, "UTF-8");
     }
 
+    QrDecoder() {
+        reader.setHints(HINTS);
+    }
+
     /* ======================= Public API ======================= */
-
-    /** Decodifica da bytes PNG. */
-    ResultData decodePNG(byte[] pngBytes) {
-        if (pngBytes == null || pngBytes.length == 0) {
-            Log.w(TAG, "decodePNG: empty input");
-            return null;
-        }
-        final BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // evita RGB_565
-        opts.inScaled = false;                            // no DPI scaling
-        Bitmap bmp = BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.length, opts);
-        if (bmp == null) {
-            Log.w(TAG, "decodePNG: BitmapFactory failed");
-            return null;
-        }
-        try { return decodeBitmap(bmp); }
-        finally { bmp.recycle(); }
-    }
-
-    /** Decodifica da Bitmap (assunta ARGB_8888). */
-    ResultData decodeBitmap(Bitmap bmp) {
-        if (bmp == null) return null;
-        int w = bmp.getWidth(), h = bmp.getHeight();
-        if (w <= 0 || h <= 0) return null;
-
-        int[] argb = new int[w * h];
-        bmp.getPixels(argb, 0, w, 0, 0, w, h);
-        if (debug) {
-            StringBuilder sb = new StringBuilder("pixels[0..4]: ");
-            for (int i = 0; i < Math.min(5, argb.length); i++)
-                sb.append(String.format(Locale.ROOT, "0x%08X ", argb[i]));
-            Log.d(TAG, "decodeBitmap " + w + "x" + h + " " + sb);
-        }
-
-        // LuminanceSource direttamente da ARGB (ZXing gestisce rotazioni/deskew internamente)
-        LuminanceSource source = new RGBLuminanceSource(w, h, argb);
-        return decodeSource(source);
-    }
 
     /** Decodifica da buffer RGBA-like. */
     ResultData decodeRGBA(byte[] rgba, int width, int height, int stride) {
-        if (rgba == null || width <= 0 || height <= 0 || stride <= 0) return null;
+        if (rgba == null || width <= 0 || height <= 0 || stride <= 0) {
+            return null;
+        }
         int strideBytes = stride;
         if (strideBytes < width * 4) strideBytes *= 4; // stride may be in pixels
         if (strideBytes < width * 4) strideBytes = width * 4;
 
-        int[] argb = new int[width * height];
+        int pixelCount = width * height;
+        byte[] yPlane = ensureLumaCapacity(pixelCount);
+        int[] argb = ensureArgbCapacity(pixelCount);
+
         int idx = 0;
         for (int y = 0; y < height; y++) {
             int row = y * strideBytes;
@@ -112,39 +81,62 @@ final class QrDecoder {
                 int r, g, b;
                 switch (pixelFormat) {
                     case RGBA:
-                        r = rgba[base] & 0xFF; g = rgba[base+1] & 0xFF; b = rgba[base+2] & 0xFF; break;
+                        r = rgba[base] & 0xFF; g = rgba[base + 1] & 0xFF; b = rgba[base + 2] & 0xFF; break;
                     case BGRA:
-                        b = rgba[base] & 0xFF; g = rgba[base+1] & 0xFF; r = rgba[base+2] & 0xFF; break;
+                        b = rgba[base] & 0xFF; g = rgba[base + 1] & 0xFF; r = rgba[base + 2] & 0xFF; break;
                     case ARGB:
-                        r = rgba[base+1] & 0xFF; g = rgba[base+2] & 0xFF; b = rgba[base+3] & 0xFF; break;
+                        r = rgba[base + 1] & 0xFF; g = rgba[base + 2] & 0xFF; b = rgba[base + 3] & 0xFF; break;
                     case ABGR:
-                        r = rgba[base+3] & 0xFF; g = rgba[base+2] & 0xFF; b = rgba[base+1] & 0xFF; break;
+                        r = rgba[base + 3] & 0xFF; g = rgba[base + 2] & 0xFF; b = rgba[base + 1] & 0xFF; break;
                     default:
-                        r = rgba[base] & 0xFF; g = rgba[base+1] & 0xFF; b = rgba[base+2] & 0xFF; break;
+                        r = rgba[base] & 0xFF; g = rgba[base + 1] & 0xFF; b = rgba[base + 2] & 0xFF; break;
                 }
                 argb[idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                yPlane[idx] = (byte) fastLuma(r, g, b);
             }
         }
+
+        ResultData res = decodeSource(new PlanarYUVLuminanceSource(yPlane, width, height, 0, 0, width, height, false));
+        if (res != null) {
+            return res;
+        }
+
+        byte[] rot = ensureRotatedCapacity(pixelCount);
+        for (int i = 0, j = pixelCount - 1; i < pixelCount; i++, j--) {
+            rot[i] = yPlane[j];
+        }
+        res = decodeSource(new PlanarYUVLuminanceSource(rot, width, height, 0, 0, width, height, false));
+        if (res != null) {
+            return res;
+        }
+
         LuminanceSource source = new RGBLuminanceSource(width, height, argb);
         return decodeSource(source);
     }
 
     /** Decodifica da piano Y (luma). */
     ResultData decodeLuma(byte[] y, int width, int height, int stride) {
-        if (y == null || width <= 0 || height <= 0 || stride <= 0) return null;
-        // Pack to tight if needed
-        byte[] packed = y;
-        if (stride != width) {
-            packed = new byte[width * height];
+        if (y == null || width <= 0 || height <= 0 || stride <= 0) {
+            return null;
+        }
+        int pixelCount = width * height;
+        byte[] packed;
+        if (stride == width) {
+            packed = y;
+        } else {
+            packed = ensureLumaCapacity(pixelCount);
             for (int row = 0; row < height; row++) {
                 System.arraycopy(y, row * stride, packed, row * width, width);
             }
         }
         ResultData r = decodeSource(new PlanarYUVLuminanceSource(packed, width, height, 0, 0, width, height, false));
-        if (r != null) return r;
-        // Try 180 as cheap fallback
-        byte[] rot180 = new byte[width * height];
-        for (int i = 0, j = rot180.length - 1; i < rot180.length; i++, j--) rot180[i] = packed[j];
+        if (r != null) {
+            return r;
+        }
+        byte[] rot180 = ensureRotatedCapacity(pixelCount);
+        for (int i = 0, j = pixelCount - 1; i < pixelCount; i++, j--) {
+            rot180[i] = packed[j];
+        }
         return decodeSource(new PlanarYUVLuminanceSource(rot180, width, height, 0, 0, width, height, false));
     }
 
@@ -153,31 +145,34 @@ final class QrDecoder {
     private ResultData decodeSource(LuminanceSource source) {
         if (source == null) return null;
 
-        // 1) Hybrid
         ResultData r = tryDecode(new BinaryBitmap(new HybridBinarizer(source)));
-        if (r != null) return r;
+        if (r != null) {
+            return r;
+        }
 
-        // 2) GlobalHistogram
         r = tryDecode(new BinaryBitmap(new GlobalHistogramBinarizer(source)));
-        if (r != null) return r;
+        if (r != null) {
+            return r;
+        }
 
-        // 3) Inverted + Hybrid
-        r = tryDecode(new BinaryBitmap(new HybridBinarizer(source.invert())));
-        if (r != null) return r;
+        LuminanceSource inverted = source.invert();
+        r = tryDecode(new BinaryBitmap(new HybridBinarizer(inverted)));
+        if (r != null) {
+            return r;
+        }
 
-        // 4) Inverted + GlobalHistogram
-        r = tryDecode(new BinaryBitmap(new GlobalHistogramBinarizer(source.invert())));
-        if (r != null) return r;
+        r = tryDecode(new BinaryBitmap(new GlobalHistogramBinarizer(inverted)));
+        if (r != null) {
+            return r;
+        }
 
-        if (debug) Log.w(TAG, "decodeSource: all attempts failed");
         return null;
     }
 
     private ResultData tryDecode(BinaryBitmap bb) {
-        MultiFormatReader reader = new MultiFormatReader();
         try {
             reader.setHints(HINTS);
-            Result result = reader.decode(bb);
+            Result result = reader.decodeWithState(bb);
             if (result == null) return null;
 
             ResultPoint[] pts = result.getResultPoints();
@@ -187,7 +182,6 @@ final class QrDecoder {
             if (corners == null) return null;
             enforceClockwise(corners);
 
-            if (debug) Log.i(TAG, "QR: \"" + result.getText() + "\" points=" + pts.length);
             return new ResultData(result.getText(), corners);
         } catch (NotFoundException ignore) {
             return null;
@@ -197,6 +191,33 @@ final class QrDecoder {
         } finally {
             reader.reset();
         }
+    }
+
+    private static int fastLuma(int r, int g, int b) {
+        int y = (r * 38 + g * 75 + b * 15) >> 7;
+        if (y < 0) return 0;
+        return y > 255 ? 255 : y;
+    }
+
+    private byte[] ensureLumaCapacity(int size) {
+        if (lumaBuffer.length < size) {
+            lumaBuffer = new byte[size];
+        }
+        return lumaBuffer;
+    }
+
+    private byte[] ensureRotatedCapacity(int size) {
+        if (rotatedBuffer.length < size) {
+            rotatedBuffer = new byte[size];
+        }
+        return rotatedBuffer;
+    }
+
+    private int[] ensureArgbCapacity(int size) {
+        if (argbBuffer.length < size) {
+            argbBuffer = new int[size];
+        }
+        return argbBuffer;
     }
 
     /* ======================= Corners helpers ======================= */

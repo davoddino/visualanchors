@@ -1,1 +1,5 @@
 .gradle
+/build
+gradlehome
+tmp_gradle_home
+*.aar

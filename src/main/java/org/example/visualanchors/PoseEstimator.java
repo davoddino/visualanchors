@@ -105,35 +105,43 @@ class PoseEstimator {
         r3 = cross(r1, r2);
         normalizeInPlace(r3);
 
-        // [R|t] mappa marker→camera. Per avere trasform camera→marker, invertiamo:
-        // T_cm = [R t; 0 1],  T_mc = [Rᵀ  -Rᵀ t; 0 1]
-        final double[][] Rinv = transpose(new double[][]{
+        // Matrice [R|t] mappa marker→camera nel frame CV (X right, Y down, Z forward).
+        final double[][] Rcam = new double[][]{
                 { r1[0], r2[0], r3[0] },
                 { r1[1], r2[1], r3[1] },
                 { r1[2], r2[2], r3[2] }
-        });
-        final double[] tInv = multiplyVec(Rinv, new double[]{ -t[0], -t[1], -t[2] });
+        };
+        final double[] tCam = new double[]{ t[0], t[1], t[2] };
 
-        // Matrice 4x4 column-major per Godot (camera→marker)
+        // Converti dal frame CV a quello di Godot (X right, Y up, Z backward).
+        final double[][] cvToGodot = new double[][]{
+                { 1.0,  0.0,  0.0 },
+                { 0.0, -1.0,  0.0 },
+                { 0.0,  0.0, -1.0 }
+        };
+        final double[][] Rgodot = multiply(cvToGodot, Rcam);
+        final double[] tGodot = multiplyVec(cvToGodot, tCam);
+
+        // Matrice 4x4 column-major per Godot (marker nel frame camera)
         float[] pose = new float[16];
-        pose[0] = (float) Rinv[0][0];
-        pose[1] = (float) Rinv[1][0];
-        pose[2] = (float) Rinv[2][0];
+        pose[0] = (float) Rgodot[0][0];
+        pose[1] = (float) Rgodot[1][0];
+        pose[2] = (float) Rgodot[2][0];
         pose[3] = 0f;
 
-        pose[4] = (float) Rinv[0][1];
-        pose[5] = (float) Rinv[1][1];
-        pose[6] = (float) Rinv[2][1];
+        pose[4] = (float) Rgodot[0][1];
+        pose[5] = (float) Rgodot[1][1];
+        pose[6] = (float) Rgodot[2][1];
         pose[7] = 0f;
 
-        pose[8]  = (float) Rinv[0][2];
-        pose[9]  = (float) Rinv[1][2];
-        pose[10] = (float) Rinv[2][2];
+        pose[8]  = (float) Rgodot[0][2];
+        pose[9]  = (float) Rgodot[1][2];
+        pose[10] = (float) Rgodot[2][2];
         pose[11] = 0f;
 
-        pose[12] = (float) tInv[0];
-        pose[13] = (float) tInv[1];
-        pose[14] = (float) tInv[2];
+        pose[12] = (float) tGodot[0];
+        pose[13] = (float) tGodot[1];
+        pose[14] = (float) tGodot[2];
         pose[15] = 1f;
 
         return pose;

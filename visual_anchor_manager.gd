@@ -1,12 +1,10 @@
 extends Node
 
 signal qr_detected(text, corners, pose, width, height)
-signal debug_message(message)
 
 var plugin = null
 var pixel_format = "RGBA"
 var qr_size = 0.1  # 10cm
-var debug_enabled = false
 var _anchor_node: Node3D = null
 var _anchor_placed := false
 var _intrinsics_sent := false
@@ -25,15 +23,10 @@ func _ready():
 		# Connect signals
 		if plugin:
 			plugin.connect("qr_detected", Callable(self, "_on_qr_detected"))
-			plugin.connect("debug_log", Callable(self, "_on_debug_log"))
 			
 			# Configure default settings
 			plugin.set_qr_size_m(qr_size)
 			plugin.set_pixel_format(pixel_format)
-			# Enable diagnostic frame saving immediately
-			enable_debug(true)
-			# Run a one-shot self-test (generate and decode a QR)
-			print("🔬 self-test:", self_test_generate_and_decode())
 	else:
 		print("VisualAnchors plugin not found!")
 
@@ -54,12 +47,6 @@ func set_pixel_format(format: String) -> void:
 		plugin.set_pixel_format(format)
 		print("Pixel format set to ", format)
 
-func enable_debug(enabled: bool) -> void:
-	debug_enabled = enabled
-	if plugin:
-		plugin.set_debug_save_frames(enabled)
-		print("Debug mode ", "enabled" if enabled else "disabled")
-
 func scan_rgba(rgba: PackedByteArray, width: int, height: int, stride: int) -> bool:
 	if plugin:
 		return plugin.scan_rgba(rgba, width, height, stride)
@@ -68,26 +55,6 @@ func scan_rgba(rgba: PackedByteArray, width: int, height: int, stride: int) -> b
 func scan_luma(luma: PackedByteArray, width: int, height: int, stride: int) -> bool:
 	if plugin:
 		return plugin.scan_luma(luma, width, height, stride)
-	return false
-
-func scan_png(png_bytes: PackedByteArray) -> bool:
-	if plugin:
-		return plugin.scan_png(png_bytes)
-	return false
-
-func scan_png_path(path: String) -> bool:
-	if plugin:
-		return plugin.scan_png_path(path)
-	return false
-
-func test_detection() -> bool:
-	if plugin:
-		return plugin.test_detection()
-	return false
-
-func self_test_generate_and_decode() -> bool:
-	if plugin and plugin.has_method("self_test_generate_and_decode"):
-		return plugin.self_test_generate_and_decode()
 	return false
 
 func _on_qr_detected(text, corners, pose, width, height):
@@ -112,10 +79,6 @@ func _on_qr_detected(text, corners, pose, width, height):
     _anchor_placed = true
     print("[VA] One-shot anchor placed for payload:", text)
     emit_signal("qr_detected", text, corners, pose, width, height)
-
-func _on_debug_log(message):
-	print("VisualAnchors: ", message)
-	emit_signal("debug_message", message)
 
 func _load_config() -> void:
 	var path := "res://visual_anchor_markers.json"
