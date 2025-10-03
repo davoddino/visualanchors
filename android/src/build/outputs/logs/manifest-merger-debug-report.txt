@@ -1,0 +1,24 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:1:1-7:12
+INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:1:1-7:12
+	package
+		INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:1:11-69
+application
+ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:2:5-6:19
+meta-data#org.godotengine.plugin.v1.VisualAnchors
+ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:3:9-5:77
+	android:value
+		ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:5:13-74
+	android:name
+		ADDED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml:4:13-67
+uses-sdk
+INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml
+INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/main/main/AndroidManifest.xml

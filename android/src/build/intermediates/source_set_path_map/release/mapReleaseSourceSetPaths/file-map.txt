@@ -1,0 +1,7 @@
+org.example.visualanchors-pngs-0 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/build/generated/res/pngs/release
+org.example.visualanchors-resValues-1 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/build/generated/res/resValues/release
+org.example.visualanchors-mergeReleaseResources-2 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+org.example.visualanchors-mergeReleaseResources-3 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+org.example.visualanchors-release-4 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/build/intermediates/merged_res/release/mergeReleaseResources
+org.example.visualanchors-main-5 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/src/main/res
+org.example.visualanchors-release-6 /Users/davidcavada/caso_uso_camera_server/addons/visualanchors/android/src/src/release/res
