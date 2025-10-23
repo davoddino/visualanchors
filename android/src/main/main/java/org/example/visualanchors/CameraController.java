@@ -406,6 +406,7 @@ final class CameraController implements AutoCloseable {
                 return;
             }
             byte[] data = copyLuma(buffer, width, height, rowStride, pixelStride);
+            // We always return a tightly packed copy, so expose the stride Godot should use.
             FrameData frame = new FrameData(data, width, height, width, image.getTimestamp());
             listener.onFrame(frame);
         } catch (Exception ex) {

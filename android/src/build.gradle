@@ -10,12 +10,21 @@ android {
         minSdk 26
         targetSdk 34
         consumerProguardFiles "consumer-rules.pro"
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "-DOpenCV_DIR=${file('../OpenCV-android-sdk/sdk/native/jni').absolutePath}"
+            }
+        }
     }
 
     sourceSets {
         main {
             manifest.srcFile 'main/main/AndroidManifest.xml'
             java.srcDirs = ['main/main/java']
+            jniLibs.srcDirs = ['main/main/jniLibs']
         }
     }
 
@@ -27,10 +36,15 @@ android {
     packagingOptions {
         resources { excludes += ["META-INF/*"] }
     }
+
+    externalNativeBuild {
+        cmake {
+            path "main/main/cpp/CMakeLists.txt"
+        }
+    }
 }
 
 dependencies {
-    implementation files('libs/zxing-core-3.5.2.jar')
     // Usa gli AAR dei template Godot presenti nella build Android principale
     compileOnly files('../../../../android/build/libs/debug/godot-lib.template_debug.aar',
             '../../../../android/build/libs/release/godot-lib.template_release.aar')
