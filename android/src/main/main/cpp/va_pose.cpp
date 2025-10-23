@@ -55,7 +55,7 @@ PoseResult estimate_pose_ippe_square(const std::array<cv::Point2f, 4>& imgPts,
         }
     }
     if (bestIdx < 0) {
-        // fall back to minimal reprojection error even if Z <= 0 (cheirality failure)
+        // fall back to minimal reprojection error even if Z <= 0 (chirality failure)
         for (size_t i = 0; i < tvecValues.size(); ++i) {
             double err = reproj.empty() ? 0.0 : reproj.at<double>(static_cast<int>(i), 0);
             if (err < bestError) {
