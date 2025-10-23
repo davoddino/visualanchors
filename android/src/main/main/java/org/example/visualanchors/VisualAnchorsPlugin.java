@@ -282,7 +282,9 @@ public final class VisualAnchorsPlugin extends GodotPlugin implements CameraCont
             throw ex;
         }
         if (outputs.length == 0) {
-            Log.v(TAG, "processFrame: no detections for frame timestamp=" + frame.timestampNs);
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                Log.v(TAG, "processFrame: no detections for frame timestamp=" + frame.timestampNs);
+            }
             return;
         }
         Log.i(TAG, "processFrame: detections=" + outputs.length + " timestamp=" + frame.timestampNs);

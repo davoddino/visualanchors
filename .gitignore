@@ -2,8 +2,8 @@
 /build
 gradlehome
 tmp_gradle_home
-*.aar
 android/OpenCV-android-sdk
 android/src/.gradle
 android/src/.cxx
 android/src/build
+**/*.bin

@@ -74,6 +74,10 @@ final class PoseEstimator {
         private final QuatSmoother rotationFilter;
         private float[] lastFilteredMatrix;
         private long lastTimestampNs = 0L;
+        private final double[] tmpTranslation = new double[3];
+        private final double[] tmpPrevTranslation = new double[3];
+        private final float[] tmpQuaternion = new float[4];
+        private final float[] tmpPrevQuaternion = new float[4];
 
         TrackState(double posMinCutoff, double posBeta, double rotMinCutoffDeg, double rotBeta) {
             translationFilter = new OneEuroFilter(posMinCutoff, posBeta);
@@ -81,19 +85,24 @@ final class PoseEstimator {
         }
 
         PoseOutput apply(QrDetectorOpenCV.DetectionResult det, Config config, long timestampNs) {
-            double[] translation = extractTranslation(det.transform);
-            float[] quaternion = extractQuaternion(det.transform);
+            double[] translation = tmpTranslation;
+            copyTranslation(det.transform, translation);
+            float[] quaternion = tmpQuaternion;
+            copyQuaternion(det.transform, quaternion);
             if (lastFilteredMatrix != null && lastTimestampNs > 0L) {
-                double rawTransJump = distance(translation, extractTranslation(lastFilteredMatrix));
-                double rawRotJump = Math.abs(relativeAngleDeg(quaternion, extractQuaternion(lastFilteredMatrix)));
+                copyTranslation(lastFilteredMatrix, tmpPrevTranslation);
+                copyQuaternion(lastFilteredMatrix, tmpPrevQuaternion);
+                double rawTransJump = distance(translation, tmpPrevTranslation);
+                double rawRotJump = Math.abs(relativeAngleDeg(quaternion, tmpPrevQuaternion));
                 boolean transExceeded = config.getGatingMaxTransJumpM() > 0.0 && rawTransJump > config.getGatingMaxTransJumpM();
                 boolean rotExceeded = config.getGatingMaxRotJumpDeg() > 0.0 && rawRotJump > config.getGatingMaxRotJumpDeg();
                 if (transExceeded || rotExceeded) {
-                    Log.d(TAG, "Gating raw jump payload=" + det.payload
-                            + " rawTransJump=" + String.format(Locale.US, "%.4f", rawTransJump)
-                            + " rawRotJumpDeg=" + String.format(Locale.US, "%.2f", rawRotJump)
-                            + " maxTrans=" + config.getGatingMaxTransJumpM()
-                            + " maxRot=" + config.getGatingMaxRotJumpDeg());
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, String.format(Locale.US,
+                                "Gating raw jump payload=%s rawTransJump=%.4f rawRotJumpDeg=%.2f maxTrans=%.3f maxRot=%.1f",
+                                det.payload, rawTransJump, rawRotJump,
+                                config.getGatingMaxTransJumpM(), config.getGatingMaxRotJumpDeg()));
+                    }
                     return null;
                 }
             }
@@ -105,16 +114,19 @@ final class PoseEstimator {
             float[] filteredQ = rotationFilter.filter(quaternion, dt > 0.0 ? dt : 1.0 / 60.0);
 
             if (lastFilteredMatrix != null && dt > 0.0) {
-                double transJump = distance(filteredT, extractTranslation(lastFilteredMatrix));
-                double rotJump = Math.abs(relativeAngleDeg(filteredQ, extractQuaternion(lastFilteredMatrix)));
+                copyTranslation(lastFilteredMatrix, tmpPrevTranslation);
+                copyQuaternion(lastFilteredMatrix, tmpPrevQuaternion);
+                double transJump = distance(filteredT, tmpPrevTranslation);
+                double rotJump = Math.abs(relativeAngleDeg(filteredQ, tmpPrevQuaternion));
                 boolean transExceeded = config.getGatingMaxTransJumpM() > 0.0 && transJump > config.getGatingMaxTransJumpM();
                 boolean rotExceeded = config.getGatingMaxRotJumpDeg() > 0.0 && rotJump > config.getGatingMaxRotJumpDeg();
                 if (transExceeded || rotExceeded) {
-                    Log.d(TAG, "Gating filtered jump payload=" + det.payload
-                            + " transJump=" + String.format(Locale.US, "%.4f", transJump)
-                            + " rotJumpDeg=" + String.format(Locale.US, "%.2f", rotJump)
-                            + " maxTrans=" + config.getGatingMaxTransJumpM()
-                            + " maxRot=" + config.getGatingMaxRotJumpDeg());
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, String.format(Locale.US,
+                                "Gating filtered jump payload=%s transJump=%.4f rotJumpDeg=%.2f maxTrans=%.3f maxRot=%.1f",
+                                det.payload, transJump, rotJump,
+                                config.getGatingMaxTransJumpM(), config.getGatingMaxRotJumpDeg()));
+                    }
                     return null;
                 }
             }
@@ -123,19 +135,20 @@ final class PoseEstimator {
             lastFilteredMatrix = filteredMatrix;
             lastTimestampNs = timestampNs;
             if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "Pose accepted payload=" + det.payload
-                        + " t=" + formatVec(filteredT)
-                        + " dt=" + String.format(Locale.US, "%.4f", dt)
-                        + " reproj=" + String.format(Locale.US, "%.3f", det.reprojectionErrorPx));
+                Log.v(TAG, String.format(Locale.US,
+                        "Pose accepted payload=%s t=%s dt=%.4f reproj=%.3f",
+                        det.payload, formatVec(filteredT), dt, det.reprojectionErrorPx));
             }
             return new PoseOutput(det.payload, filteredMatrix, det.reprojectionErrorPx, det.areaPx, timestampNs);
         }
 
-        private static double[] extractTranslation(float[] mat) {
-            return new double[]{mat[12], mat[13], mat[14]};
+        private static void copyTranslation(float[] mat, double[] out) {
+            out[0] = mat[12];
+            out[1] = mat[13];
+            out[2] = mat[14];
         }
 
-        private static float[] extractQuaternion(float[] mat) {
+        private static void copyQuaternion(float[] mat, float[] out) {
             float m00 = mat[0]; float m10 = mat[1]; float m20 = mat[2];
             float m01 = mat[4]; float m11 = mat[5]; float m21 = mat[6];
             float m02 = mat[8]; float m12 = mat[9]; float m22 = mat[10];
@@ -166,7 +179,10 @@ final class PoseEstimator {
                 y = (m12 + m21) / s;
                 z = 0.25f * s;
             }
-            return new float[]{x, y, z, w};
+            out[0] = x;
+            out[1] = y;
+            out[2] = z;
+            out[3] = w;
         }
 
         private static float[] composeMatrix(float[] quat, double[] translation) {

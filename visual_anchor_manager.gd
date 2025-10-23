@@ -17,6 +17,12 @@ const ESTIMATED_INTRINSICS := {
 
 const ESTIMATED_DISTORTION := [0.0, 0.0, 0.0, 0.0, 0.0]
 
+const LOG_VERBOSE := false
+
+func _log_msg(message: String) -> void:
+	if LOG_VERBOSE:
+		print(message)
+
 var _plugin: Object
 var _plugin_connected: bool = false
 var _plugin_methods: PackedStringArray = PackedStringArray()
@@ -97,10 +103,10 @@ func set_filters(params: Dictionary) -> void:
 func start() -> bool:
 	if not _ensure_plugin():
 		push_warning("VisualAnchors Android plugin not available on this platform")
-		print("[VA Manager] start aborted: plugin missing")
+		_log_msg("[VA Manager] start aborted: plugin missing")
 		return false
 	if _running:
-		print("[VA Manager] start ignored: already running")
+		_log_msg("[VA Manager] start ignored: already running")
 		return true
 	var success: bool = true
 	var call_result: Variant = _plugin.call("start")
@@ -108,17 +114,17 @@ func start() -> bool:
 		success = bool(call_result)
 	if success:
 		_running = true
-		print("[VA Manager] start succeeded")
+		_log_msg("[VA Manager] start succeeded")
 	else:
 		_running = false
-		print("[VA Manager] start failed")
+		_log_msg("[VA Manager] start failed")
 	return success
 
 func stop() -> void:
 	if _plugin and _plugin_connected:
 		if _plugin_has("stop"):
 			_plugin.call("stop")
-			print("[VA Manager] stop invoked on plugin")
+			_log_msg("[VA Manager] stop invoked on plugin")
 	_running = false
 
 func is_running() -> bool:
@@ -160,7 +166,7 @@ func _ensure_plugin() -> bool:
 		if singleton:
 			_bind_plugin(singleton)
 			return true
-		print("[VA Manager] Engine singleton VisualAnchors missing")
+		_log_msg("[VA Manager] Engine singleton VisualAnchors missing")
 	return false
 
 func _bind_plugin(singleton: Object) -> void:
@@ -168,19 +174,19 @@ func _bind_plugin(singleton: Object) -> void:
 		_disconnect_plugin()
 	_plugin = singleton
 	if _plugin:
-		print("[VA Manager] binding plugin")
+		_log_msg("[VA Manager] binding plugin")
 		_refresh_plugin_methods()
 		var err_pose: int = _plugin.connect("qr_pose", Callable(self, "_on_plugin_pose"))
 		if err_pose != OK:
 			push_warning("VisualAnchors: connect qr_pose failed (%d)" % err_pose)
-			print("[VA Manager] connect qr_pose failed code=%d" % err_pose)
+			_log_msg("[VA Manager] connect qr_pose failed code=%d" % err_pose)
 		var err_err: int = _plugin.connect("error", Callable(self, "_on_plugin_error"))
 		if err_err != OK:
 			push_warning("VisualAnchors: connect error failed (%d)" % err_err)
-			print("[VA Manager] connect error failed code=%d" % err_err)
+			_log_msg("[VA Manager] connect error failed code=%d" % err_err)
 		_plugin_connected = true
 		_apply_cached_configuration()
-		print("[VA Manager] plugin bound, methods=%s" % [_plugin_methods])
+		_log_msg("[VA Manager] plugin bound, methods=%s" % [_plugin_methods])
 
 func _disconnect_plugin() -> void:
 	if _plugin and _plugin_connected:
@@ -188,7 +194,7 @@ func _disconnect_plugin() -> void:
 			_plugin.disconnect("qr_pose", Callable(self, "_on_plugin_pose"))
 		if _plugin.is_connected("error", Callable(self, "_on_plugin_error")):
 			_plugin.disconnect("error", Callable(self, "_on_plugin_error"))
-		print("[VA Manager] plugin disconnected")
+		_log_msg("[VA Manager] plugin disconnected")
 	_plugin_connected = false
 	_plugin = null
 
@@ -228,7 +234,7 @@ func _apply_intrinsics() -> void:
 			_cached_intrinsics.get("cx", 0.0),
 			_cached_intrinsics.get("cy", 0.0)
 		)
-		print("[VA Manager] setCameraIntrinsics fx=%f fy=%f cx=%f cy=%f" % [
+		_log_msg("[VA Manager] setCameraIntrinsics fx=%f fy=%f cx=%f cy=%f" % [
 			_cached_intrinsics.get("fx", 0.0),
 			_cached_intrinsics.get("fy", 0.0),
 			_cached_intrinsics.get("cx", 0.0),
@@ -236,7 +242,7 @@ func _apply_intrinsics() -> void:
 		])
 	if _plugin_has("setDistortion") and _cached_distortion.size() >= 4:
 		_plugin.call("setDistortion", _cached_distortion)
-		print("[VA Manager] setDistortion len=%d" % _cached_distortion.size())
+		_log_msg("[VA Manager] setDistortion len=%d" % _cached_distortion.size())
 
 func _apply_default_size() -> void:
 	if _plugin == null:
@@ -245,7 +251,7 @@ func _apply_default_size() -> void:
 		return
 	if _plugin_has("setDefaultQrSizeMeters"):
 		_plugin.call("setDefaultQrSizeMeters", _cached_default_size)
-		print("[VA Manager] setDefaultQrSizeMeters %.4f" % _cached_default_size)
+		_log_msg("[VA Manager] setDefaultQrSizeMeters %.4f" % _cached_default_size)
 
 func _apply_size_map() -> void:
 	if _plugin == null:
@@ -253,21 +259,21 @@ func _apply_size_map() -> void:
 	if not _plugin_has("clearQrSizeOverrides"):
 		return
 	_plugin.call("clearQrSizeOverrides")
-	print("[VA Manager] clearQrSizeOverrides")
+	_log_msg("[VA Manager] clearQrSizeOverrides")
 	if _cached_size_map.is_empty():
 		return
 	for payload in _cached_size_map.keys():
 		var size_m: float = float(_cached_size_map[payload])
 		if size_m > 0.0 and _plugin_has("setQrSizeForId"):
 			_plugin.call("setQrSizeForId", str(payload), size_m)
-			print("[VA Manager] setQrSizeForId payload=%s size=%.4f" % [payload, size_m])
+			_log_msg("[VA Manager] setQrSizeForId payload=%s size=%.4f" % [payload, size_m])
 
 func _apply_external_transform() -> void:
 	if _plugin == null:
 		return
 	if _plugin_has("setExternalCameraFromXR"):
 		_plugin.call("setExternalCameraFromXR", _transform_to_float_array(_cached_external_transform))
-		print("[VA Manager] setExternalCameraFromXR origin=%s" % _cached_external_transform.origin)
+		_log_msg("[VA Manager] setExternalCameraFromXR origin=%s" % _cached_external_transform.origin)
 
 func _apply_filters() -> void:
 	if _plugin == null:
@@ -279,7 +285,7 @@ func _apply_filters() -> void:
 			_cached_smoothing["rot_min_cutoff_deg"],
 			_cached_smoothing["rot_beta"]
 		)
-		print("[VA Manager] setSmoothingParams %s" % [_cached_smoothing])
+		_log_msg("[VA Manager] setSmoothingParams %s" % [_cached_smoothing])
 	if _plugin_has("setGatingParams"):
 		_plugin.call("setGatingParams",
 			_cached_gating["max_reproj_err_px"],
@@ -288,7 +294,7 @@ func _apply_filters() -> void:
 			_cached_gating["max_rot_jump_deg"],
 			_cached_gating["max_trans_jump_m"]
 		)
-		print("[VA Manager] setGatingParams %s" % [_cached_gating])
+		_log_msg("[VA Manager] setGatingParams %s" % [_cached_gating])
 
 func _on_plugin_pose(payload: String, transform_array, reproj_err_px: float, area_px: float) -> void:
 	var transform: Transform3D = _array_to_transform(transform_array)
