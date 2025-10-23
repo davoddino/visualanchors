@@ -2,4 +2,9 @@
 /build
 gradlehome
 tmp_gradle_home
-*.aar
+addons/visualanchors/android/OpenCV-android-sdk
+addons/visualanchors/android/src/.gradle
+addons/visualanchors/android/src/.cxx
+addons/visualanchors/android/src/build
+**/*.bin
+**/.DS_Store
