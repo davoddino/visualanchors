@@ -170,22 +170,30 @@ public final class VisualAnchorsPlugin extends GodotPlugin implements CameraCont
     }
 
     @UsedByGodot
-    public void start() {
+    public boolean start() {
         try {
             config.ensureReady();
             Log.i(TAG, "start(): config OK -> " + config.debugSummary());
         } catch (Errors.ConfigurationMissing ex) {
             emitError(ERROR_CONFIG, ex.getMessage());
-            throw ex;
+            Log.e(TAG, "start(): configuration missing", ex);
+            return false;
+        } catch (RuntimeException ex) {
+            emitError(ERROR_INPUT, ex.getMessage());
+            Log.e(TAG, "start(): invalid input", ex);
+            return false;
         }
         poseEstimator.reset();
         streamingRequested = true;
         boolean ok = startCameraController();
         if (!ok) {
             streamingRequested = false;
-            throw new Errors.PoseComputationFailed("Failed to start camera controller");
+            emitError(ERROR_RUNTIME, "Failed to start camera controller");
+            Log.e(TAG, "start(): camera controller failed to start");
+            return false;
         }
         Log.i(TAG, "start(): camera controller started");
+        return true;
     }
 
     @UsedByGodot
