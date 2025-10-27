@@ -12,9 +12,9 @@ Key features:
 ## Repository layout
 
 - `bin/visualanchors-*.aar` – prebuilt debug/release binaries shipped with the addon.
-- `src/main/java/` – Android Java glue (configuration, Camera2 controller, JNI bridge, smoothing).
-- `src/main/cpp/` – Native OpenCV pipeline (`va_qr_detector`, `va_pose`, `va_jni`).
-- `src/main/jniLibs/` – Output directory for compiled `.so` artefacts (populated by Gradle/CMake).
+- `src/main/main/java/` – Android Java glue (configuration, Camera2 controller, JNI bridge, smoothing).
+- `src/main/main/cpp/` – Native OpenCV pipeline (`va_qr_detector`, `va_pose`, `va_jni`).
+- `src/main/main/jniLibs/` – Output directory for compiled `.so` artefacts (populated by Gradle/CMake).
 
 To rebuild the AAR locally use the project-level Gradle wrapper:
 
@@ -22,7 +22,7 @@ To rebuild the AAR locally use the project-level Gradle wrapper:
 ./gradlew assembleRelease assembleDebug -p addons/visualanchors/android/src
 ```
 
-Make sure the Godot template AARs exist under `addons/visualanchors/android/build/libs/` (they are generated when you install the Android build template from the editor).
+Make sure the Godot template AARs exist under `android/build/libs/` (they are generated when you install the Android build template from the editor).
 
 ### OpenCV dependency
 

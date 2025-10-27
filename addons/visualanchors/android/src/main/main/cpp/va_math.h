@@ -11,11 +11,8 @@
 
 namespace va {
 
-inline std::array<cv::Point2f, 4> order_corners(const std::vector<cv::Point2f>& pts) {
+inline std::array<cv::Point2f, 4> order_corners_by_sumdiff(const std::vector<cv::Point2f>& pts) {
     std::array<cv::Point2f, 4> ordered{};
-    if (pts.size() < 4) {
-        return ordered;
-    }
     std::array<int, 4> indices = {0, 1, 2, 3};
     float minSum = std::numeric_limits<float>::max();
     float maxSum = -std::numeric_limits<float>::max();
@@ -35,32 +32,82 @@ inline std::array<cv::Point2f, 4> order_corners(const std::vector<cv::Point2f>& 
         }
         if (diff < minDiff) {
             minDiff = diff;
-            indices[1] = static_cast<int>(i); // top-right
+            indices[3] = static_cast<int>(i); // bottom-left
         }
         if (diff > maxDiff) {
             maxDiff = diff;
-            indices[3] = static_cast<int>(i); // bottom-left
+            indices[1] = static_cast<int>(i); // top-right
         }
     }
-    // Ensure all indices unique; otherwise fall back to the first four points.
-    std::array<int, 4> check = indices;
-    std::sort(check.begin(), check.end());
-    if (std::unique(check.begin(), check.end()) != check.end()) {
-        for (size_t i = 0; i < 4; ++i) {
-            ordered[i] = pts[i];
-        }
-    } else {
-        for (size_t i = 0; i < 4; ++i) {
-            ordered[i] = pts[indices[i]];
-        }
+    for (size_t i = 0; i < 4; ++i) {
+        ordered[i] = pts[indices[i]];
     }
-    // Enforce counter-clockwise winding (top-left -> top-right -> bottom-right -> bottom-left).
     const cv::Point2f& tl = ordered[0];
     const cv::Point2f& tr = ordered[1];
     const cv::Point2f& br = ordered[2];
     float cross = (tr.x - tl.x) * (br.y - tl.y) - (tr.y - tl.y) * (br.x - tl.x);
     if (cross < 0.0f) {
-        std::swap(ordered[1], ordered[3]);
+        std::swap(ordered[2], ordered[3]);
+    }
+    return ordered;
+}
+
+inline bool nearly_equal(const cv::Point2f& a, const cv::Point2f& b, float eps = 1e-4f) {
+    return std::abs(a.x - b.x) < eps && std::abs(a.y - b.y) < eps;
+}
+
+inline std::array<cv::Point2f, 4> order_corners(const std::vector<cv::Point2f>& pts) {
+    std::array<cv::Point2f, 4> ordered{};
+    if (pts.size() < 4) {
+        return ordered;
+    }
+    std::vector<cv::Point2f> sorted(pts.begin(), pts.begin() + 4);
+    std::sort(sorted.begin(), sorted.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
+        if (std::abs(a.y - b.y) < 1e-3f) {
+            return a.x < b.x;
+        }
+        return a.y < b.y;
+    });
+    cv::Point2f tl, tr, br, bl;
+    const cv::Point2f& top0 = sorted[0];
+    const cv::Point2f& top1 = sorted[1];
+    if (top0.x <= top1.x) {
+        tl = top0;
+        tr = top1;
+    } else {
+        tl = top1;
+        tr = top0;
+    }
+    const cv::Point2f& bottom0 = sorted[2];
+    const cv::Point2f& bottom1 = sorted[3];
+    if (bottom0.x <= bottom1.x) {
+        bl = bottom0;
+        br = bottom1;
+    } else {
+        bl = bottom1;
+        br = bottom0;
+    }
+    ordered[0] = tl;
+    ordered[1] = tr;
+    ordered[2] = br;
+    ordered[3] = bl;
+    auto duplicates = [&](const cv::Point2f& p, const cv::Point2f& q) {
+        return nearly_equal(p, q);
+    };
+    if (duplicates(ordered[0], ordered[1]) ||
+        duplicates(ordered[0], ordered[2]) ||
+        duplicates(ordered[0], ordered[3]) ||
+        duplicates(ordered[1], ordered[2]) ||
+        duplicates(ordered[1], ordered[3]) ||
+        duplicates(ordered[2], ordered[3])) {
+        return order_corners_by_sumdiff(pts);
+    }
+    const cv::Point2f& tlRef = ordered[0];
+    const cv::Point2f& trRef = ordered[1];
+    const cv::Point2f& brRef = ordered[2];
+    float cross = (trRef.x - tlRef.x) * (brRef.y - tlRef.y) - (trRef.y - tlRef.y) * (brRef.x - tlRef.x);
+    if (cross < 0.0f) {
+        std::swap(ordered[2], ordered[3]);
     }
     return ordered;
 }

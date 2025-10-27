@@ -22,9 +22,9 @@ android {
 
     sourceSets {
         main {
-            manifest.srcFile 'main/AndroidManifest.xml'
-            java.srcDirs = ['main/java']
-            jniLibs.srcDirs = ['main/jniLibs']
+            manifest.srcFile 'main/main/AndroidManifest.xml'
+            java.srcDirs = ['main/main/java']
+            jniLibs.srcDirs = ['main/main/jniLibs']
         }
     }
 
@@ -39,7 +39,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            path "main/cpp/CMakeLists.txt"
+            path "main/main/cpp/CMakeLists.txt"
         }
     }
 }
